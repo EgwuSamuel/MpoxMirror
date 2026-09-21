@@ -5,8 +5,6 @@ A digital early-warning system for mpox in Nigeria.
 MpoxMirror combines open health, genomic, and environmental data into one pipeline
 that flags mpox outbreaks earlier than traditional case reporting.
 
-Formerly `smartmpox-nigeria`.
-
 ## What's inside
 
 | Folder | Purpose |
