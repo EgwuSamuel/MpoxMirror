@@ -21,8 +21,8 @@ Formerly `smartmpox-nigeria`.
 ## Run locally
 
 ```bash
-git clone https://github.com/EgwuSamuel/MpoXMirror.git
-cd MpoXMirror
+git clone https://github.com/EgwuSamuel/MpoxMirror.git
+cd MpoxMirror
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 cp .env.example .env      # add your credentials
