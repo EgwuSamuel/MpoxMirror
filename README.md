@@ -1,15 +1,15 @@
-# MpoxMirror
+# MpoXMirror
 
 **A digital early-warning and genomic-surveillance system for mpox in Nigeria.**
 
-MpoxMirror (formerly `smartmpox-nigeria`) integrates open epidemiological, genomic, and
+MpoXMirror (formerly `smartmpox-nigeria`) integrates open epidemiological, genomic, and
 environmental data into a single pipeline that detects mpox signals earlier than
 traditional case-based reporting. The system is built around a seven-phase methodology,
 from data warehousing through a public API and alerting layer.
 
-> **Repository note:** this project was renamed from `smartmpox-nigeria` to `MpoxMirror`.
+> **Repository note:** this project was renamed from `smartmpox-nigeria` to `MpoXMirror`.
 > GitHub redirects the old URL, but please update any bookmarks, CI configs, or clones to
-> `https://github.com/EgwuSamuel/MpoxMirror`.
+> `https://github.com/EgwuSamuel/MpoXMirror`.
 
 ## Architecture
 
@@ -30,8 +30,8 @@ Supporting directories: [`shared/`](shared/), [`docs/`](docs/), [`admin/`](admin
 ## Getting started
 
 ```bash
-git clone https://github.com/EgwuSamuel/MpoxMirror.git
-cd MpoxMirror
+git clone https://github.com/EgwuSamuel/MpoXMirror.git
+cd MpoXMirror
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 cp .env.example .env                                 # then fill in credentials
