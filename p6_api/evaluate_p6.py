@@ -85,11 +85,14 @@ for code, name in countries:
     print(f"        {code}: {name}")
 
 # KPI: ≥2 API consumers
-n_consumers = 3   # cameroon_consumer.py, benin_consumer.py, niger_consumer.py
+# Count the consumer clients actually present (one script per consuming country).
+consumer_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "consumers")
+consumer_files = sorted(f for f in os.listdir(consumer_dir) if f.endswith("_consumer.py"))
+n_consumers = len(consumer_files)
 k2 = n_consumers >= 2
 kpi_pass &= k2
 print(f"\n[{'PASS' if k2 else 'FAIL'}] API consumers simulated: {n_consumers}")
-print(f"       cameroon_consumer.py, benin_consumer.py, niger_consumer.py")
+print(f"       {', '.join(consumer_files)}")
 
 # KPI: delivery ≤48h
 k3 = max_delivery_h <= 48

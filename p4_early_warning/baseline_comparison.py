@@ -12,22 +12,23 @@ deploy.
             expert inference layer)   5 streams (adds digital surveillance)
 
 Every system is scored on the SAME test rows with AUC / Sensitivity / FAR / PPV,
-walk-forward and on the 2024 Clade-I stress test. No leakage: each system is
+walk-forward and on the held-out 2024 year. No leakage: each system is
 fitted only on data preceding its test year.
 
 Run:  python p4_early_warning/baseline_comparison.py
 Out:  p4_early_warning/models/baseline_comparison_results.json
 """
-import os, json, warnings
+import os, sys, json, warnings
 import numpy as np
 import pandas as pd
-import psycopg2
-from dotenv import load_dotenv
 from datetime import datetime, timezone
 from sklearn.metrics import roc_auc_score
 
-import statsmodels.api as sm
 from statsmodels.tsa.arima.model import ARIMA
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import data_access as da
+from negbin import PredictiveNegBin
 from sklearn.metrics import roc_curve
 
 # Reuse the expert engine + XGBoost evidence model (no leakage, fitted per fold)
@@ -61,7 +62,6 @@ def youden_threshold(y_binary, scores) -> float:
     t = float(thr[np.argmax(tpr - fpr)])
     return t if np.isfinite(t) else float(np.median(s))
 
-load_dotenv()
 warnings.filterwarnings("ignore")   # silence ARIMA convergence chatter
 
 # NB GLM predictors (cases + climate + reservoir + spatial + seasonality) = 4 streams
@@ -73,15 +73,12 @@ NB_PREDICTORS = [
     "week_sin", "week_cos",
 ]
 
+# (2019->2020 is skipped automatically: 2020 has no positive state-weeks, so the
+# walk-forward mean is over three folds with test years 2021-2023.)
 FOLDS = [(2019, 2020), (2020, 2021), (2021, 2022), (2022, 2023)]
-CLADE_FOLD = (2023, 2024)   # headline cross-clade stress test
+CLADE_FOLD = (2023, 2024)   # held-out 2024 test (key name kept for compatibility)
 
 
-def get_conn():
-    return psycopg2.connect(os.getenv("DATABASE_URL"))
-
-
-# ─────────────────────────── System 1: ARIMA ─────────────────────────────────
 def load_case_series() -> pd.DataFrame:
     """
     Continuous weekly case series per state. surveillance_weekly only stores
@@ -89,18 +86,7 @@ def load_case_series() -> pd.DataFrame:
     features_weekly and LEFT JOIN actual cases, filling implicit zeros — the
     honest input an ARIMA surveillance model would actually see.
     """
-    conn = get_conn(); cur = conn.cursor()
-    cur.execute("""
-        SELECT f.state_id, f.epi_year, f.epi_week,
-               COALESCE(s.total_cases, 0) AS cases
-        FROM features_weekly f
-        LEFT JOIN surveillance_weekly s
-          ON s.state_id = f.state_id AND s.epi_year = f.epi_year AND s.epi_week = f.epi_week
-        ORDER BY f.state_id, f.epi_year, f.epi_week
-    """)
-    df = pd.DataFrame(cur.fetchall(), columns=["state_id", "epi_year", "epi_week", "cases"])
-    cur.close(); conn.close()
-    return df
+    return da.load_case_series()
 
 
 def _fit_best_arima(history: np.ndarray):
@@ -173,36 +159,28 @@ def eval_arima(test_df, test_scores, threshold) -> dict:
 
 # ─────────────────────────── System 2: NB GLM ────────────────────────────────
 def eval_nb_glm(train_df, test_df) -> dict:
-    Xtr = train_df[NB_PREDICTORS].fillna(0).astype(np.float64).values
+    """NB2 baseline with estimated dispersion (negbin.PredictiveNegBin)."""
     ytr = train_df["target_cases_4w"].fillna(0).astype(np.float64).values
-    Xte = test_df[NB_PREDICTORS].fillna(0).astype(np.float64).values
     y   = test_df[TARGET].values.astype(int)
-
-    Xtr_df = sm.add_constant(pd.DataFrame(Xtr, columns=NB_PREDICTORS), has_constant="add")
-    Xte_df = sm.add_constant(pd.DataFrame(Xte, columns=NB_PREDICTORS), has_constant="add")
-    try:
-        res = sm.GLM(ytr, Xtr_df,
-                     family=sm.families.NegativeBinomial(link=sm.families.links.Log())
-                     ).fit(maxiter=200, disp=False)
-    except Exception:
-        res = sm.GLM(ytr, Xtr_df, family=sm.families.Poisson()).fit(maxiter=100, disp=False)
+    model = PredictiveNegBin(NB_PREDICTORS).fit(train_df, ytr)
 
     # Fair operating point: Youden-J on TRAIN predictions (no leakage)
-    train_score = np.asarray(res.predict(Xtr_df)).clip(0)
+    train_score = model.predict(train_df).clip(0)
     thr = youden_threshold((ytr > 0).astype(int), train_score)
 
-    score = np.asarray(res.predict(Xte_df)).clip(0)
+    score = model.predict(test_df).clip(0)
     auc = roc_auc_score(y, score) if y.sum() and len(np.unique(score)) > 1 else None
     alert = (score >= thr).astype(int)
     m = alert_metrics(y, alert)
     m["auc"] = round(auc, 4) if auc is not None else None
     m["sens_at_far10"] = sensitivity_at_far(y, score, 0.10)
+    m["nb_alpha"] = round(model.alpha, 3)
     return m
 
 
 # ────────────────────── System 3: SmartMpox (XGB + expert) ────────────────────
-def eval_smartmpox(train_df, test_df, train_max_year) -> dict:
-    model, engine, _meta = build_engine(train_df, train_max_year)
+def eval_smartmpox(train_df, test_df, train_max_year, seed: int = 42) -> dict:
+    model, engine, _meta = build_engine(train_df, train_max_year, seed=seed)
     Xte  = test_df[FEATURE_COLS].fillna(0).values.astype(np.float32)
     probs = model.predict_proba(Xte)[:, 1]
     dec   = engine.infer_frame(test_df, probs)
@@ -259,8 +237,8 @@ def main():
         if res:
             fold_results.append(res)
 
-    print("\n── Cross-clade stress test (headline) ──")
-    clade = run_fold(df, series_df, CLADE_FOLD[0], CLADE_FOLD[1], f"{CLADE_FOLD[0]}->{CLADE_FOLD[1]} Clade I")
+    print("\n── Held-out 2024 test (headline) ──")
+    clade = run_fold(df, series_df, CLADE_FOLD[0], CLADE_FOLD[1], f"{CLADE_FOLD[0]}->{CLADE_FOLD[1]} held-out")
 
     systems = ["arima", "nb_glm", "smartmpox"]
     summary = {s: {k: mean_metric(fold_results, s, k)

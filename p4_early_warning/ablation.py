@@ -2,31 +2,21 @@
 P4 Ablation Study — Feature Group Contribution Analysis
 Walk-forward CV with each feature group removed to prove marginal value.
 
+Uses exactly the XGBoost configuration of the main system (expert_system.make_xgb),
+so the "Full model" row equals the system's walk-forward AUC. The digital stream
+is not an XGBoost feature (it enters only through rule R3), so its contribution is
+measured at system level in multiseed_analysis.py ("no digital" expert layer).
+
 Run: python p4_early_warning/ablation.py
 Output: p4_early_warning/models/ablation_results.json
 """
-import os, json
+import os, sys, json
 import numpy as np
-import pandas as pd
-import psycopg2
-import xgboost as xgb
-from dotenv import load_dotenv
 from datetime import datetime, timezone
 from sklearn.metrics import roc_auc_score
-from sklearn.model_selection import cross_val_score
 
-load_dotenv()
-
-FEATURE_COLS = [
-    "cases_t1", "cases_t2", "cases_t4",
-    "cases_rolling4w_mean", "cases_rolling8w_mean", "cases_log1p",
-    "cases_velocity", "cases_accel",
-    "rainfall_t2_mm", "rainfall_t4_mm", "temp_mean_t1_c",
-    "reservoir_risk_index",
-    "is_border_state", "neighbour_cases_t1",
-    "week_sin", "week_cos",
-]
-TARGET = "target_outbreak_4w"
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from expert_system import FEATURE_COLS, TARGET, load_features, make_xgb
 
 ABLATION_GROUPS = {
     "Full model (all streams)": [],   # remove nothing
@@ -45,38 +35,7 @@ WALK_FORWARD_FOLDS = [
 ]
 
 
-def load_data():
-    conn = psycopg2.connect(os.getenv("DATABASE_URL"))
-    cur  = conn.cursor()
-    cur.execute("""
-        SELECT state_id, epi_year, epi_week,
-               cases_t1, cases_t2, cases_t4,
-               cases_rolling4w_mean, cases_rolling8w_mean, cases_log1p,
-               rainfall_t2_mm, rainfall_t4_mm, temp_mean_t1_c,
-               reservoir_risk_index,
-               is_border_state::INT AS is_border_state,
-               neighbour_cases_t1,
-               target_outbreak_4w
-        FROM features_weekly
-        WHERE is_complete = TRUE AND target_outbreak_4w IS NOT NULL
-        ORDER BY epi_year, epi_week, state_id
-    """)
-    cols = [d[0] for d in cur.description]
-    df   = pd.DataFrame(cur.fetchall(), columns=cols)
-    cur.close(); conn.close()
-    return df
-
-
-def add_derived(df):
-    df = df.copy()
-    df["week_sin"]       = np.sin(2 * np.pi * df["epi_week"] / 52)
-    df["week_cos"]       = np.cos(2 * np.pi * df["epi_week"] / 52)
-    df["cases_velocity"] = df["cases_t1"] - df["cases_t2"]
-    df["cases_accel"]    = (df["cases_t1"] - df["cases_t2"]) - (df["cases_t2"] - df["cases_t4"]) / 2
-    return df
-
-
-def run_fold(df, train_max, test_year, feature_cols):
+def run_fold(df, train_max, test_year, feature_cols, seed: int = 42):
     train = df[df["epi_year"] <= train_max]
     test  = df[df["epi_year"] == test_year]
     if len(test) == 0 or test[TARGET].sum() == 0:
@@ -87,22 +46,15 @@ def run_fold(df, train_max, test_year, feature_cols):
     X_te = test[feature_cols].fillna(0).values.astype(np.float32)
     y_te = test[TARGET].values.astype(int)
 
-    spw   = (y_tr == 0).sum() / max((y_tr == 1).sum(), 1)
-    model = xgb.XGBClassifier(
-        n_estimators=300, max_depth=4, learning_rate=0.05,
-        subsample=0.8, colsample_bytree=0.8, min_child_weight=5,
-        scale_pos_weight=spw, objective="binary:logistic",
-        random_state=42, n_jobs=-1, verbosity=0,
-    )
-    model.fit(X_tr, y_tr, eval_set=[(X_te, y_te)], verbose=False)
+    model = make_xgb(y_tr, seed)
+    model.fit(X_tr, y_tr, verbose=False)
     probs = model.predict_proba(X_te)[:, 1]
     return roc_auc_score(y_te, probs)
 
 
 def main():
     print("=== Ablation Study — Feature Group Contribution ===\n")
-    df = load_data()
-    df = add_derived(df)
+    df = load_features()
     print(f"Loaded {len(df)} rows ({df['epi_year'].min()}–{df['epi_year'].max()})\n")
 
     results = {}

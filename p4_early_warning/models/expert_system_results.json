@@ -1,26 +1,26 @@
 {
-  "computed_at": "2026-08-13T14:58:18.152246+00:00",
+  "computed_at": "2026-09-25T06:26:01.585001+00:00",
   "description": "Knowledge-based expert inference layer fusing XGBoost evidence with codified epidemiological rules. Escalation-only (fail-safe); thresholds fitted on training folds (no leakage).",
   "knowledge_base": [
     {
       "id": "R1",
       "name": "reservoir_ecology",
-      "rationale": "NB-GLM reservoir_risk_index is the dominant predictor (IRR=4.49, p<0.001); high rodent-reservoir suitability is a structural One-Health risk the sparse case data under-weight."
+      "rationale": "reservoir_risk_index has the largest NB-GLM incidence-rate ratio (nb_regression.py); high rodent-reservoir suitability is a structural One-Health risk the sparse case data under-weight."
     },
     {
       "id": "R2",
       "name": "border_paradox",
-      "rationale": "Border states with high reservoir suitability are structurally exposed to cross-clade importation (Clade I entered via border states); floor their tier so the ML cannot zero them out."
+      "rationale": "Border states with high reservoir suitability are structurally exposed to cross-border importation; floor their tier so the ML cannot zero them out."
     },
     {
       "id": "R3",
       "name": "digital_lead_time",
-      "rationale": "A national mpox-chatter surge gave a forward-tested ~2-week lead over NCDC confirmation at the 2024 Clade-I emergence (the raw first-mention gap was longer but not operationally robust); a digital surge corroborates latent risk before it appears in case counts."
+      "rationale": "A national mpox-chatter surge is an independent, non-case corroborator of latent risk. It is national, not Nigeria-specific (prospective_validation.py): it corroborates, it does not localise."
     },
     {
       "id": "R4",
       "name": "spatial_spillover",
-      "rationale": "Neighbour cases in the prior week (IRR=1.022, p<0.001) signal diffusion risk not yet realised locally."
+      "rationale": "Neighbour cases in the prior week (positive NB-GLM IRR) signal diffusion risk not yet realised locally."
     },
     {
       "id": "R5",
@@ -34,7 +34,7 @@
     "alert_rule": "prob>=youden OR (prob>=0.4*youden AND corroborating_votes>=2)"
   },
   "clade_shift_headline": {
-    "label": "Cross-clade (train<=2023, test=2024 Clade I)",
+    "label": "Held-out 2024 (train<=2023, test=2024)",
     "test_year": 2024,
     "test_n": 1924,
     "test_positives": 40,
@@ -42,8 +42,8 @@
       "youden": 0.6731,
       "reservoir_p75": 0.2776,
       "reservoir_p90": 0.461,
-      "digital_surge_threshold": 1.5,
-      "n_surge_weeks": 49
+      "digital_surge_threshold": 3.0,
+      "n_surge_weeks": 51
     },
     "xgboost_alone": {
       "sensitivity": 0.025,
@@ -56,17 +56,17 @@
     },
     "expert_system": {
       "sensitivity": 0.2,
-      "false_alarm_rate": 0.0372,
-      "ppv": 0.1026,
+      "false_alarm_rate": 0.0377,
+      "ppv": 0.1013,
       "tp": 8,
-      "fp": 70,
+      "fp": 71,
       "fn": 32,
-      "tn": 1814
+      "tn": 1813
     },
     "recovered_outbreaks": 7,
-    "added_false_alarms": 42,
+    "added_false_alarms": 43,
     "sensitivity_gain": 0.175,
-    "ppv_change": 0.0681
+    "ppv_change": 0.0668
   },
   "walk_forward_folds": [
     {
@@ -79,7 +79,7 @@
         "reservoir_p75": 0.2776,
         "reservoir_p90": 0.461,
         "digital_surge_threshold": 1.0,
-        "n_surge_weeks": 96
+        "n_surge_weeks": 124
       },
       "xgboost_alone": {
         "sensitivity": 0.0,
@@ -114,7 +114,7 @@
         "reservoir_p75": 0.2776,
         "reservoir_p90": 0.461,
         "digital_surge_threshold": 1.0,
-        "n_surge_weeks": 96
+        "n_surge_weeks": 124
       },
       "xgboost_alone": {
         "sensitivity": 0.0,
@@ -126,18 +126,18 @@
         "tn": 1660
       },
       "expert_system": {
-        "sensitivity": 0.0114,
-        "false_alarm_rate": 0.0042,
-        "ppv": 0.3,
-        "tp": 3,
-        "fp": 7,
-        "fn": 260,
-        "tn": 1654
+        "sensitivity": 0.0152,
+        "false_alarm_rate": 0.0078,
+        "ppv": 0.2353,
+        "tp": 4,
+        "fp": 13,
+        "fn": 259,
+        "tn": 1648
       },
-      "recovered_outbreaks": 3,
-      "added_false_alarms": 6,
-      "sensitivity_gain": 0.0114,
-      "ppv_change": 0.3
+      "recovered_outbreaks": 4,
+      "added_false_alarms": 12,
+      "sensitivity_gain": 0.0152,
+      "ppv_change": 0.2353
     },
     {
       "label": "WF train<=2022, test=2023",
@@ -148,8 +148,8 @@
         "youden": 0.8124,
         "reservoir_p75": 0.2776,
         "reservoir_p90": 0.461,
-        "digital_surge_threshold": 3.25,
-        "n_surge_weeks": 24
+        "digital_surge_threshold": 3.75,
+        "n_surge_weeks": 34
       },
       "xgboost_alone": {
         "sensitivity": 0.1818,
@@ -182,11 +182,11 @@
       "ppv": 0.1399
     },
     "expert_system": {
-      "sensitivity": 0.0822,
-      "false_alarm_rate": 0.0141,
-      "ppv": 0.2333
+      "sensitivity": 0.0835,
+      "false_alarm_rate": 0.0153,
+      "ppv": 0.2118
     },
-    "mean_recovered_outbreaks": 4.33,
-    "mean_sensitivity_gain": 0.0216
+    "mean_recovered_outbreaks": 4.67,
+    "mean_sensitivity_gain": 0.0229
   }
 }

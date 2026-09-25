@@ -1,0 +1,26 @@
+{
+  "exported_at": "2026-09-25T06:07:38.712537+00:00",
+  "social_snapshot_cutoff": "2026-09-21 08:05:52+00",
+  "files": {
+    "features_weekly.csv": {
+      "sha256": "6971d5fe63292cd1cac0ff7414c0daca8cf441d40853edc1f133bec7bcf9f16c",
+      "rows": 15429
+    },
+    "gbif_rodentia_effort_by_state.json": {
+      "sha256": "56f334cc1135e621f8691d9dbf2b8263322ee9cedf24c8d468cf5b10ba207f8e",
+      "rows": null
+    },
+    "social_languages.csv": {
+      "sha256": "b3176353c1e228095d3398d8015203654fb53ca6ab908a7c70441f8d24dc026d",
+      "rows": 6
+    },
+    "social_weekly_counts.csv": {
+      "sha256": "363f226e2ce1dc47690c6e76a30fd3beb9742df5de31ce16b58176340670b560",
+      "rows": 124
+    },
+    "surveillance_weekly.csv": {
+      "sha256": "4e2664e64a9580732d77fa48708f6837da198a378ae29a9e98f034d2798ac09d",
+      "rows": 522
+    }
+  }
+}

@@ -10,26 +10,25 @@ Design goals (for Knowledge-Based Systems / Expert Systems with Applications):
   * Transparent INFERENCE ENGINE — every decision reports which rules fired.
   * Hybrid intelligence — ML supplies graded evidence; the knowledge base supplies
     structural priors the data are too sparse to learn (reservoir ecology, the
-    border paradox, digital lead-time).
+    border paradox, national digital chatter).
   * NO LEAKAGE — all thresholds (Youden, reservoir percentiles, digital baseline)
     are fitted on the training fold only.
 
-The headline evaluation is clade-stratified: does the expert layer RECOVER the
-outbreaks that XGBoost alone misses when Clade I emerges in 2024?
+The headline evaluation is the held-out 2024 year (train <= 2023): does the expert
+layer RECOVER the outbreaks that XGBoost alone misses under that temporal shift?
 
 Run:  python p4_early_warning/expert_system.py
 Out:  p4_early_warning/models/expert_system_results.json
 """
-import os, json
+import os, sys, json
 import numpy as np
 import pandas as pd
-import psycopg2
 import xgboost as xgb
-from dotenv import load_dotenv
 from datetime import datetime, timezone
 from sklearn.metrics import roc_curve
 
-load_dotenv()
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import data_access as da
 
 FEATURE_COLS = [
     "cases_t1", "cases_t2", "cases_t4",
@@ -55,65 +54,28 @@ def base_tier(prob: float) -> str:
 
 
 # ───────────────────────────── data loading ──────────────────────────────────
-def get_conn():
-    return psycopg2.connect(os.getenv("DATABASE_URL"))
-
-
 def load_features() -> pd.DataFrame:
-    conn = get_conn(); cur = conn.cursor()
-    cur.execute("""
-        SELECT state_id, epi_year, epi_week,
-               cases_t1, cases_t2, cases_t4,
-               cases_rolling4w_mean, cases_rolling8w_mean, cases_log1p,
-               rainfall_t2_mm, rainfall_t4_mm, temp_mean_t1_c,
-               reservoir_risk_index,
-               is_border_state::INT AS is_border_state,
-               neighbour_cases_t1,
-               target_outbreak_4w, target_cases_4w
-        FROM features_weekly
-        WHERE is_complete = TRUE AND target_outbreak_4w IS NOT NULL
-        ORDER BY epi_year, epi_week, state_id
-    """)
-    cols = [d[0] for d in cur.description]
-    df = pd.DataFrame(cur.fetchall(), columns=cols)
-    cur.close(); conn.close()
-    return add_derived(df)
+    """Labelled, complete state-weeks (live warehouse or frozen snapshot)."""
+    return add_derived(da.load_labelled_features())
 
 
-def add_derived(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
-    df["week_sin"]       = np.sin(2 * np.pi * df["epi_week"] / 52)
-    df["week_cos"]       = np.cos(2 * np.pi * df["epi_week"] / 52)
-    df["cases_velocity"] = df["cases_t1"] - df["cases_t2"]
-    df["cases_accel"]    = (df["cases_t1"] - df["cases_t2"]) - (df["cases_t2"] - df["cases_t4"]) / 2
-    return df
+add_derived = da.add_derived
 
 
 def load_national_digital_signal(train_max_year: int) -> tuple[set, float]:
     """
     Build a NATIONAL weekly mpox-chatter surge indicator from the P3 scanner.
 
-    Rationale: only 8/343 mpox-relevant posts carry a state_id, so the digital
-    signal is honestly a national-resolution early-warning corroborator. Forward
-    testing (prospective_validation.py) shows a robust ~2-week lead over NCDC
-    confirmation at this threshold. A week is a 'surge' week if its mpox-relevant
-    post count exceeds the 75th percentile of TRAINING-period weekly counts
-    (threshold fitted on train only → no leakage).
+    Only 8/343 mpox-relevant posts carry a state_id, so the digital signal is a
+    national-resolution corroborator. A week is a 'surge' week if its
+    mpox-relevant post count reaches the 75th percentile of TRAINING-period
+    weekly counts (threshold fitted on train only -> no leakage). Posts are
+    pinned to data_access.SOCIAL_SNAPSHOT_CUTOFF so the threshold is stable.
 
     Returns (set_of_surge_(isoyear,isoweek), fitted_threshold).
     """
-    conn = get_conn(); cur = conn.cursor()
-    cur.execute("""
-        SELECT EXTRACT(ISOYEAR FROM published_at)::int AS iy,
-               EXTRACT(WEEK    FROM published_at)::int AS iw,
-               COUNT(*) AS n
-        FROM social_media_signals
-        WHERE is_mpox_relevant = TRUE AND published_at IS NOT NULL
-        GROUP BY iy, iw
-        ORDER BY iy, iw
-    """)
-    weekly = [(int(r[0]), int(r[1]), int(r[2])) for r in cur.fetchall()]
-    cur.close(); conn.close()
+    wk = da.load_social_weekly()
+    weekly = list(zip(wk["iso_year"], wk["iso_week"], wk["n"]))
 
     train_counts = [n for (iy, iw, n) in weekly if iy <= train_max_year]
     if len(train_counts) >= 4:
@@ -121,22 +83,33 @@ def load_national_digital_signal(train_max_year: int) -> tuple[set, float]:
     else:
         thresh = 1.0  # fallback: any chatter week counts if train history is thin
     thresh = max(thresh, 1.0)
-    surge = {(iy, iw) for (iy, iw, n) in weekly if n >= thresh}
+    surge = {(int(iy), int(iw)) for (iy, iw, n) in weekly if n >= thresh}
     return surge, thresh
 
 
 # ───────────────────────────── ML evidence ───────────────────────────────────
-def train_xgb(train_df: pd.DataFrame):
-    """Train the XGBoost evidence model on a fold; return (model, youden_threshold)."""
-    X = train_df[FEATURE_COLS].fillna(0).values.astype(np.float32)
-    y = train_df[TARGET].values.astype(int)
+def make_xgb(y_train, seed: int = 42) -> xgb.XGBClassifier:
+    """The single XGBoost configuration used by every analysis (incl. ablation)."""
+    y = np.asarray(y_train).astype(int)
     spw = (y == 0).sum() / max((y == 1).sum(), 1)
-    model = xgb.XGBClassifier(
+    return xgb.XGBClassifier(
         n_estimators=500, max_depth=5, learning_rate=0.05,
         subsample=0.8, colsample_bytree=0.8, min_child_weight=5,
         scale_pos_weight=spw, objective="binary:logistic",
-        random_state=42, n_jobs=-1, verbosity=0,
+        random_state=seed, n_jobs=-1, verbosity=0,
     )
+
+
+def train_xgb(train_df: pd.DataFrame, seed: int = 42):
+    """Train the XGBoost evidence model on a fold; return (model, youden_threshold).
+
+    `seed` seeds the XGBoost RNG so the same fold can be re-fitted under multiple
+    random initialisations for multi-seed uncertainty analysis (see
+    multiseed_analysis.py); it defaults to 42 to preserve the single-run results.
+    """
+    X = train_df[FEATURE_COLS].fillna(0).values.astype(np.float32)
+    y = train_df[TARGET].values.astype(int)
+    model = make_xgb(y, seed)
     model.fit(X, y, verbose=False)
     fpr, tpr, thr = roc_curve(y, model.predict_proba(X)[:, 1])
     youden = float(thr[np.argmax(tpr - fpr)])
@@ -163,20 +136,19 @@ class ExpertInferenceEngine:
     # Knowledge base — each rule cites the empirical/clinical rationale.
     KNOWLEDGE_BASE = [
         {"id": "R1", "name": "reservoir_ecology",
-         "rationale": "NB-GLM reservoir_risk_index is the dominant predictor "
-                      "(IRR=4.49, p<0.001); high rodent-reservoir suitability is a "
+         "rationale": "reservoir_risk_index has the largest NB-GLM incidence-rate "
+                      "ratio (nb_regression.py); high rodent-reservoir suitability is a "
                       "structural One-Health risk the sparse case data under-weight."},
         {"id": "R2", "name": "border_paradox",
          "rationale": "Border states with high reservoir suitability are structurally "
-                      "exposed to cross-clade importation (Clade I entered via border "
-                      "states); floor their tier so the ML cannot zero them out."},
+                      "exposed to cross-border importation; floor their tier so the ML "
+                      "cannot zero them out."},
         {"id": "R3", "name": "digital_lead_time",
-         "rationale": "A national mpox-chatter surge gave a forward-tested ~2-week lead "
-                      "over NCDC confirmation at the 2024 Clade-I emergence (the raw "
-                      "first-mention gap was longer but not operationally robust); a digital "
-                      "surge corroborates latent risk before it appears in case counts."},
+         "rationale": "A national mpox-chatter surge is an independent, non-case "
+                      "corroborator of latent risk. It is national, not Nigeria-specific "
+                      "(prospective_validation.py): it corroborates, it does not localise."},
         {"id": "R4", "name": "spatial_spillover",
-         "rationale": "Neighbour cases in the prior week (IRR=1.022, p<0.001) signal "
+         "rationale": "Neighbour cases in the prior week (positive NB-GLM IRR) signal "
                       "diffusion risk not yet realised locally."},
         {"id": "R5", "name": "case_momentum",
          "rationale": "Positive case velocity over a rising 4-week mean indicates "
@@ -279,13 +251,19 @@ def alert_metrics(y_true, alert) -> dict:
             "ppv": round(ppv, 4), "tp": tp, "fp": fp, "fn": fn, "tn": tn}
 
 
-def build_engine(train_df, train_max_year):
-    """Fit all knowledge-base thresholds on the training fold (no leakage)."""
-    model, youden = train_xgb(train_df)
+def build_engine(train_df, train_max_year, seed: int = 42, use_digital: bool = True):
+    """Fit all knowledge-base thresholds on the training fold (no leakage).
+
+    use_digital=False removes the digital stream (rule R3 never fires) — the
+    system-level 'no digital' ablation.
+    """
+    model, youden = train_xgb(train_df, seed=seed)
     res = train_df["reservoir_risk_index"].dropna().astype(float)
     res_p75 = float(np.percentile(res, 75))
     res_p90 = float(np.percentile(res, 90))
     surge, surge_thr = load_national_digital_signal(train_max_year)
+    if not use_digital:
+        surge = set()
     engine = ExpertInferenceEngine(youden, res_p75, res_p90, surge)
     meta = {"youden": round(youden, 4), "reservoir_p75": round(res_p75, 4),
             "reservoir_p90": round(res_p90, 4), "digital_surge_threshold": surge_thr,
@@ -293,8 +271,10 @@ def build_engine(train_df, train_max_year):
     return model, engine, meta
 
 
-def evaluate_split(train_df, test_df, train_max_year, label) -> dict:
-    model, engine, meta = build_engine(train_df, train_max_year)
+def evaluate_split(train_df, test_df, train_max_year, label, seed: int = 42,
+                   use_digital: bool = True, verbose: bool = True) -> dict:
+    model, engine, meta = build_engine(train_df, train_max_year, seed=seed,
+                                       use_digital=use_digital)
     X_te  = test_df[FEATURE_COLS].fillna(0).values.astype(np.float32)
     probs = model.predict_proba(X_te)[:, 1]
     dec   = engine.infer_frame(test_df, probs)
@@ -318,7 +298,9 @@ def evaluate_split(train_df, test_df, train_max_year, label) -> dict:
         "sensitivity_gain": round(expert_m["sensitivity"] - xgb_m["sensitivity"], 4),
         "ppv_change":       round(expert_m["ppv"] - xgb_m["ppv"], 4),
     }
-    print(f"\n  [{label}]  test={label.split('=')[-1]}  pos={total_pos}/{len(test_df)}")
+    if not verbose:
+        return result
+    print(f"\n  [{label}]  pos={total_pos}/{len(test_df)}")
     print(f"    XGBoost alone : Sens={xgb_m['sensitivity']:.3f}  FAR={xgb_m['false_alarm_rate']:.3f}  PPV={xgb_m['ppv']:.3f}")
     print(f"    + Expert layer: Sens={expert_m['sensitivity']:.3f}  FAR={expert_m['false_alarm_rate']:.3f}  PPV={expert_m['ppv']:.3f}")
     print(f"    Recovered outbreaks: {rescued_pos} (+{result['sensitivity_gain']:.3f} sensitivity)"
@@ -331,10 +313,10 @@ def main():
     df = load_features()
     print(f"Loaded {len(df)} state-weeks ({df['epi_year'].min()}–{df['epi_year'].max()})")
 
-    # ── Headline: cross-clade recovery (train ≤2023, test 2024 Clade I) ──────────
-    print("\n── Clade-shift stress test (the headline result) ──")
+    # ── Headline: recovery on the held-out 2024 year (train <=2023) ─────────────
+    print("\n── Held-out 2024 test (the headline result) ──")
     cross = evaluate_split(df[df["epi_year"] <= 2023], df[df["epi_year"] == 2024],
-                           2023, "Cross-clade (train<=2023, test=2024 Clade I)")
+                           2023, "Held-out 2024 (train<=2023, test=2024)")
 
     # ── Walk-forward folds (matches ablation.py) ────────────────────────────────
     print("\n── Walk-forward folds ──")

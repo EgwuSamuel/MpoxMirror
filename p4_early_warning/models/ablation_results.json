@@ -1,6 +1,6 @@
 {
-  "computed_at": "2026-08-09T13:14:59.618167+00:00",
-  "full_model_auc": 0.7035,
+  "computed_at": "2026-09-25T06:26:24.100381+00:00",
+  "full_model_auc": 0.7186,
   "folds": [
     "2019\u21922020",
     "2020\u21922021",
@@ -12,11 +12,11 @@
       "features_used": 16,
       "features_removed": [],
       "fold_aucs": [
-        0.6885,
-        0.6864,
-        0.7355
+        0.7001,
+        0.7213,
+        0.7342
       ],
-      "mean_auc": 0.7035,
+      "mean_auc": 0.7186,
       "delta_vs_full": 0.0
     },
     "No climate": {
@@ -27,12 +27,12 @@
         "temp_mean_t1_c"
       ],
       "fold_aucs": [
-        0.7482,
-        0.7148,
-        0.7249
+        0.7497,
+        0.7162,
+        0.7095
       ],
-      "mean_auc": 0.7293,
-      "delta_vs_full": 0.0258
+      "mean_auc": 0.7251,
+      "delta_vs_full": 0.0065
     },
     "No reservoir/ecology": {
       "features_used": 15,
@@ -40,12 +40,12 @@
         "reservoir_risk_index"
       ],
       "fold_aucs": [
-        0.6408,
-        0.6989,
-        0.7276
+        0.4875,
+        0.7016,
+        0.7232
       ],
-      "mean_auc": 0.6891,
-      "delta_vs_full": -0.0144
+      "mean_auc": 0.6375,
+      "delta_vs_full": -0.0811
     },
     "No spatial": {
       "features_used": 14,
@@ -54,12 +54,12 @@
         "neighbour_cases_t1"
       ],
       "fold_aucs": [
-        0.6989,
-        0.6922,
-        0.7192
+        0.6481,
+        0.7026,
+        0.7167
       ],
-      "mean_auc": 0.7034,
-      "delta_vs_full": -0.0001
+      "mean_auc": 0.6891,
+      "delta_vs_full": -0.0295
     },
     "Cases only (baseline)": {
       "features_used": 10,
@@ -72,12 +72,12 @@
         "neighbour_cases_t1"
       ],
       "fold_aucs": [
-        0.6676,
-        0.7183,
-        0.7077
+        0.6492,
+        0.7048,
+        0.6794
       ],
-      "mean_auc": 0.6979,
-      "delta_vs_full": -0.0056
+      "mean_auc": 0.6778,
+      "delta_vs_full": -0.0408
     }
   }
 }

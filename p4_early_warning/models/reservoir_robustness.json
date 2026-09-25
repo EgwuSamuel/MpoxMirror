@@ -1,0 +1,74 @@
+{
+  "computed_at": "2026-09-25T06:08:49.970582+00:00",
+  "method": "Target-group background bias check: order Rodentia GBIF records per state as a collector-effort proxy; NB-GLM refit with log(effort).",
+  "rodentia_effort_by_state": {
+    "EK": 65,
+    "JI": 24,
+    "PL": 999,
+    "OG": 584,
+    "LA": 83,
+    "YO": 3,
+    "OY": 285,
+    "KN": 18,
+    "CR": 53,
+    "BA": 51,
+    "OS": 150,
+    "TA": 43,
+    "BE": 62,
+    "BO": 70,
+    "GO": 14,
+    "AB": 1,
+    "AD": 28,
+    "BY": 84,
+    "NA": 50,
+    "ED": 276,
+    "DE": 13,
+    "AK": 12,
+    "RI": 73,
+    "FC": 307,
+    "ON": 28,
+    "NI": 110,
+    "KO": 104,
+    "EB": 35,
+    "EN": 31,
+    "AN": 42,
+    "KT": 4,
+    "KD": 50,
+    "KE": 262,
+    "KW": 277,
+    "SO": 8
+  },
+  "n_states_with_effort": 35,
+  "total_rodentia_records": 4299,
+  "spearman_reservoir_vs_effort": {
+    "rho": 0.4322,
+    "p": 0.0075617996651028115
+  },
+  "spearman_reservoir_vs_totalcases": {
+    "rho": 0.0894,
+    "p": 0.5989466987719289
+  },
+  "nb_alpha_mle": {
+    "baseline": 80.82644968195186,
+    "effort_controlled": 80.81580150939365
+  },
+  "reservoir_irr_baseline": {
+    "irr": 8.684606231053317,
+    "lo95": 2.9821757833412894,
+    "hi95": 25.29105957125885,
+    "pvalue": 7.38636679280179e-05
+  },
+  "reservoir_irr_effort_controlled": {
+    "irr": 8.055529050701459,
+    "lo95": 2.590858719078518,
+    "hi95": 25.046347687292997,
+    "pvalue": 0.00031237923151920544
+  },
+  "sampling_effort_irr": {
+    "irr": 1.0275743203674483,
+    "lo95": 0.8995219752660335,
+    "hi95": 1.1738556843665084,
+    "pvalue": 0.6887367747767255
+  },
+  "reservoir_survives_effort_control": true
+}

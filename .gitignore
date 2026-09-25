@@ -39,3 +39,10 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# Reproducibility: frozen analysis snapshot + the result files behind the paper
+!p4_early_warning/frozen/
+!p4_early_warning/frozen/*.csv
+!p4_early_warning/models/multiseed_results.json
+!p4_early_warning/models/nb_regression_v1.json
+!p4_early_warning/models/reservoir_robustness.json

@@ -5,22 +5,21 @@ Provides:
   2. A baseline count prediction to compare against XGBoost
   3. Satisfies KPI-5: ≥5 significant predictors
 
-Uses statsmodels GLM with NB family (log link).
+NB2 regression (log link) with the dispersion alpha estimated by maximum
+likelihood (negbin.py) — not the GLM default alpha = 1.
 Train: 2017–2022 | Test: 2023
 
 Run: python p4_early_warning/nb_regression.py [--save]
 """
-import os, json, argparse
+import os, sys, json, argparse
 import numpy as np
 import pandas as pd
-import psycopg2
-from dotenv import load_dotenv
-import statsmodels.api as sm
-from statsmodels.discrete.count_model import ZeroInflatedNegativeBinomialP
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from datetime import datetime, timezone
 
-load_dotenv()
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import data_access as da
+from negbin import design, fit_negbin, irr_table
 
 # Predictors for NB model (simpler subset — avoids multicollinearity)
 NB_PREDICTORS = [
@@ -38,54 +37,20 @@ NB_PREDICTORS = [
 TARGET_COUNT = "target_cases_4w"
 
 
-def get_conn():
-    return psycopg2.connect(os.getenv("DATABASE_URL"))
+def load_data() -> pd.DataFrame:
+    return da.add_derived(da.load_labelled_features())
 
 
-def load_data(conn) -> pd.DataFrame:
-    cur = conn.cursor()
-    cur.execute("""
-        SELECT state_id, epi_year, epi_week,
-               cases_t1, cases_t2, cases_t4,
-               cases_rolling4w_mean, cases_rolling8w_mean,
-               rainfall_t2_mm, rainfall_t4_mm, temp_mean_t1_c,
-               reservoir_risk_index,
-               is_border_state::INT AS is_border_state,
-               neighbour_cases_t1,
-               target_cases_4w, target_outbreak_4w
-        FROM features_weekly
-        WHERE is_complete = TRUE
-          AND target_outbreak_4w IS NOT NULL
-        ORDER BY epi_year, epi_week, state_id
-    """)
-    cols = [d[0] for d in cur.description]
-    df = pd.DataFrame(cur.fetchall(), columns=cols)
-    cur.close()
-
-    df["week_sin"]       = np.sin(2 * np.pi * df["epi_week"] / 52)
-    df["week_cos"]       = np.cos(2 * np.pi * df["epi_week"] / 52)
-    df["cases_velocity"] = df["cases_t1"] - df["cases_t2"]
-    return df
-
-
-def fit_nb(X_train: np.ndarray, y_train: np.ndarray,
-           predictor_names: list) -> sm.GLMResults:
-    """Fit Negative Binomial GLM with log link — use DataFrame for named params."""
+def fit_nb(X_train: np.ndarray, y_train: np.ndarray, predictor_names: list):
+    """NB2 with maximum-likelihood alpha (see negbin.py)."""
     X_df = pd.DataFrame(X_train, columns=predictor_names)
-    X_const = sm.add_constant(X_df, has_constant="add")
-    model = sm.GLM(
-        y_train, X_const,
-        family=sm.families.NegativeBinomial(link=sm.families.links.Log()),
-    )
-    result = model.fit(maxiter=200, disp=False)
-    return result
+    return fit_negbin(y_train, design(X_df, predictor_names))
 
 
 def evaluate_count(result, X_test: np.ndarray, y_test: np.ndarray,
                    predictor_names: list) -> dict:
     X_df = pd.DataFrame(X_test, columns=predictor_names)
-    X_const = sm.add_constant(X_df, has_constant="add")
-    preds = result.predict(X_const).clip(0)
+    preds = np.asarray(result.predict(design(X_df, predictor_names))).clip(0)
 
     mae  = float(mean_absolute_error(y_test, preds))
     rmse = float(np.sqrt(mean_squared_error(y_test, preds)))
@@ -135,9 +100,7 @@ def main():
     args = parser.parse_args()
 
     print("=== Negative Binomial Regression — Interpretable Model ===")
-    conn = get_conn()
-    df = load_data(conn)
-    conn.close()
+    df = load_data()
 
     train = df[df["epi_year"] <= 2022]
     val   = df[df["epi_year"] == 2023]
@@ -151,17 +114,9 @@ def main():
     y_val   = val[TARGET_COUNT].fillna(0).astype(np.float64).values
 
     print("\nFitting Negative Binomial GLM ...")
-    try:
-        result = fit_nb(X_train, y_train, NB_PREDICTORS)
-    except Exception as exc:
-        print(f"  NB failed ({exc}), trying Poisson ...")
-        X_df = pd.DataFrame(X_train, columns=NB_PREDICTORS)
-        X_const = sm.add_constant(X_df, has_constant="add")
-        result = sm.GLM(y_train, X_const,
-                        family=sm.families.Poisson()).fit(maxiter=100, disp=False)
-
-    print(f"  AIC={result.aic:.1f}  BIC={result.bic:.1f}  "
-          f"Converged={result.converged}")
+    result = fit_nb(X_train, y_train, NB_PREDICTORS)
+    alpha = float(result.params["alpha"])
+    print(f"  AIC={result.aic:.1f}  BIC={result.bic:.1f}  alpha(MLE)={alpha:.2f}")
 
     print_irr_table(result, NB_PREDICTORS)
 
@@ -181,24 +136,17 @@ def main():
 
     if args.save:
         os.makedirs("p4_early_warning/models", exist_ok=True)
-        irr_data = {}
-        for name in NB_PREDICTORS:
-            if name in result.params.index:
-                irr_data[name] = {
-                    "irr":   float(np.exp(result.params[name])),
-                    "lo95":  float(np.exp(result.conf_int().loc[name, 0])),
-                    "hi95":  float(np.exp(result.conf_int().loc[name, 1])),
-                    "pvalue": float(result.pvalues[name]),
-                    "significant": float(result.pvalues[name]) < 0.05,
-                }
+        irr_data = irr_table(result, NB_PREDICTORS)
         out = {
             "computed_at":     datetime.now(timezone.utc).isoformat(),
-            "model":           "Negative Binomial GLM (log link)",
+            "model":           "Negative binomial NB2 (log link), alpha by MLE",
+            "alpha":           alpha,
             "train_period":    "2017-2022",
             "val_period":      "2023",
             "aic":             float(result.aic),
             "bic":             float(result.bic),
             "n_sig_predictors": len(sig_preds),
+            "n_sig_p001":      int(sum(v["pvalue"] < 0.001 for v in irr_data.values())),
             "irr_table":       irr_data,
             "val_metrics":     val_metrics,
         }

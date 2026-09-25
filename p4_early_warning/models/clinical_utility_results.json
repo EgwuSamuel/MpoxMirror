@@ -1,110 +1,202 @@
 {
-  "computed_at": "2026-08-09T13:12:44.639567+00:00",
-  "n_predictions": 15355,
-  "prevalence": 0.034,
+  "computed_at": "2026-09-25T06:09:23.221429+00:00",
+  "evaluation_set": "held-out 2024 state-weeks; outcome target_outbreak_4w; model frozen on <=2023",
+  "n": 1924,
+  "positives": 40,
+  "prevalence": 0.0208,
+  "seeds": [
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51
+  ],
+  "mpoxmirror_rule_mean_tp": 7.2,
+  "mpoxmirror_rule_mean_fp": 76.3,
+  "mpoxmirror_rule_positive_nb_below_threshold": 0.0862,
+  "treat_all_positive_nb_below_threshold": 0.0208,
   "dca_curve": [
     {
-      "threshold": 0.05,
-      "model_nb": 0.00532,
-      "treat_all_nb": -0.01685,
+      "threshold": 0.01,
+      "model_prob_nb": 0.01395,
+      "model_prob_nb_sd": 0.00015,
+      "mpoxmirror_rule_nb": 0.00334,
+      "mpoxmirror_rule_nb_sd": 0.00057,
+      "treat_all_nb": 0.0109,
       "treat_none_nb": 0.0,
-      "net_gain_vs_best_alternative": 0.00532,
-      "model_preferred": 1
+      "rule_preferred": false,
+      "prob_preferred": true
+    },
+    {
+      "threshold": 0.02,
+      "model_prob_nb": 0.00903,
+      "model_prob_nb_sd": 0.00075,
+      "mpoxmirror_rule_nb": 0.00293,
+      "mpoxmirror_rule_nb_sd": 0.00056,
+      "treat_all_nb": 0.00081,
+      "treat_none_nb": 0.0,
+      "rule_preferred": true,
+      "prob_preferred": true
+    },
+    {
+      "threshold": 0.03,
+      "model_prob_nb": 0.0049,
+      "model_prob_nb_sd": 0.00068,
+      "mpoxmirror_rule_nb": 0.00252,
+      "mpoxmirror_rule_nb_sd": 0.00054,
+      "treat_all_nb": -0.00949,
+      "treat_none_nb": 0.0,
+      "rule_preferred": true,
+      "prob_preferred": true
+    },
+    {
+      "threshold": 0.04,
+      "model_prob_nb": 0.00076,
+      "model_prob_nb_sd": 0.00094,
+      "mpoxmirror_rule_nb": 0.00209,
+      "mpoxmirror_rule_nb_sd": 0.00053,
+      "treat_all_nb": -0.02001,
+      "treat_none_nb": 0.0,
+      "rule_preferred": true,
+      "prob_preferred": true
+    },
+    {
+      "threshold": 0.05,
+      "model_prob_nb": -0.00281,
+      "model_prob_nb_sd": 0.00074,
+      "mpoxmirror_rule_nb": 0.00165,
+      "mpoxmirror_rule_nb_sd": 0.00052,
+      "treat_all_nb": -0.03075,
+      "treat_none_nb": 0.0,
+      "rule_preferred": true,
+      "prob_preferred": false
+    },
+    {
+      "threshold": 0.06,
+      "model_prob_nb": -0.00579,
+      "model_prob_nb_sd": 0.00064,
+      "mpoxmirror_rule_nb": 0.00121,
+      "mpoxmirror_rule_nb_sd": 0.0005,
+      "treat_all_nb": -0.04171,
+      "treat_none_nb": 0.0,
+      "rule_preferred": true,
+      "prob_preferred": false
+    },
+    {
+      "threshold": 0.07,
+      "model_prob_nb": -0.00764,
+      "model_prob_nb_sd": 0.00047,
+      "mpoxmirror_rule_nb": 0.00076,
+      "mpoxmirror_rule_nb_sd": 0.00049,
+      "treat_all_nb": -0.05291,
+      "treat_none_nb": 0.0,
+      "rule_preferred": true,
+      "prob_preferred": false
+    },
+    {
+      "threshold": 0.08,
+      "model_prob_nb": -0.00892,
+      "model_prob_nb_sd": 0.00073,
+      "mpoxmirror_rule_nb": 0.00029,
+      "mpoxmirror_rule_nb_sd": 0.00049,
+      "treat_all_nb": -0.06436,
+      "treat_none_nb": 0.0,
+      "rule_preferred": true,
+      "prob_preferred": false
+    },
+    {
+      "threshold": 0.09,
+      "model_prob_nb": -0.01031,
+      "model_prob_nb_sd": 0.00085,
+      "mpoxmirror_rule_nb": -0.00018,
+      "mpoxmirror_rule_nb_sd": 0.00048,
+      "treat_all_nb": -0.07605,
+      "treat_none_nb": 0.0,
+      "rule_preferred": false,
+      "prob_preferred": false
     },
     {
       "threshold": 0.1,
-      "model_nb": -0.00509,
-      "treat_all_nb": -0.07334,
+      "model_prob_nb": -0.01146,
+      "model_prob_nb_sd": 0.00103,
+      "mpoxmirror_rule_nb": -0.00066,
+      "mpoxmirror_rule_nb_sd": 0.00047,
+      "treat_all_nb": -0.08801,
       "treat_none_nb": 0.0,
-      "net_gain_vs_best_alternative": -0.00509,
-      "model_preferred": 0
+      "rule_preferred": false,
+      "prob_preferred": false
     },
     {
       "threshold": 0.15,
-      "model_nb": -0.01254,
-      "treat_all_nb": -0.13648,
+      "model_prob_nb": -0.01602,
+      "model_prob_nb_sd": 0.00127,
+      "mpoxmirror_rule_nb": -0.00326,
+      "mpoxmirror_rule_nb_sd": 0.00049,
+      "treat_all_nb": -0.15201,
       "treat_none_nb": 0.0,
-      "net_gain_vs_best_alternative": -0.01254,
-      "model_preferred": 0
+      "rule_preferred": false,
+      "prob_preferred": false
     },
     {
       "threshold": 0.2,
-      "model_nb": -0.01941,
-      "treat_all_nb": -0.20751,
+      "model_prob_nb": -0.02024,
+      "model_prob_nb_sd": 0.00099,
+      "mpoxmirror_rule_nb": -0.00617,
+      "mpoxmirror_rule_nb_sd": 0.00057,
+      "treat_all_nb": -0.22401,
       "treat_none_nb": 0.0,
-      "net_gain_vs_best_alternative": -0.01941,
-      "model_preferred": 0
+      "rule_preferred": false,
+      "prob_preferred": false
     },
     {
       "threshold": 0.25,
-      "model_nb": -0.02509,
-      "treat_all_nb": -0.28801,
+      "model_prob_nb": -0.02436,
+      "model_prob_nb_sd": 0.00078,
+      "mpoxmirror_rule_nb": -0.00948,
+      "mpoxmirror_rule_nb_sd": 0.00073,
+      "treat_all_nb": -0.30561,
       "treat_none_nb": 0.0,
-      "net_gain_vs_best_alternative": -0.02509,
-      "model_preferred": 0
+      "rule_preferred": false,
+      "prob_preferred": false
     },
     {
       "threshold": 0.3,
-      "model_nb": -0.03111,
-      "treat_all_nb": -0.38001,
+      "model_prob_nb": -0.02713,
+      "model_prob_nb_sd": 0.00069,
+      "mpoxmirror_rule_nb": -0.01325,
+      "mpoxmirror_rule_nb_sd": 0.00094,
+      "treat_all_nb": -0.39887,
       "treat_none_nb": 0.0,
-      "net_gain_vs_best_alternative": -0.03111,
-      "model_preferred": 0
-    },
-    {
-      "threshold": 0.35,
-      "model_nb": -0.03718,
-      "treat_all_nb": -0.48616,
-      "treat_none_nb": 0.0,
-      "net_gain_vs_best_alternative": -0.03718,
-      "model_preferred": 0
+      "rule_preferred": false,
+      "prob_preferred": false
     },
     {
       "threshold": 0.4,
-      "model_nb": -0.04502,
-      "treat_all_nb": -0.61001,
+      "model_prob_nb": -0.03051,
+      "model_prob_nb_sd": 0.00131,
+      "mpoxmirror_rule_nb": -0.0227,
+      "mpoxmirror_rule_nb_sd": 0.00154,
+      "treat_all_nb": -0.63202,
       "treat_none_nb": 0.0,
-      "net_gain_vs_best_alternative": -0.04502,
-      "model_preferred": 0
-    },
-    {
-      "threshold": 0.45,
-      "model_nb": -0.05376,
-      "treat_all_nb": -0.75637,
-      "treat_none_nb": 0.0,
-      "net_gain_vs_best_alternative": -0.05376,
-      "model_preferred": 0
+      "rule_preferred": false,
+      "prob_preferred": false
     },
     {
       "threshold": 0.5,
-      "model_nb": -0.06324,
-      "treat_all_nb": -0.93201,
+      "model_prob_nb": -0.03394,
+      "model_prob_nb_sd": 0.0025,
+      "mpoxmirror_rule_nb": -0.03591,
+      "mpoxmirror_rule_nb_sd": 0.00242,
+      "treat_all_nb": -0.95842,
       "treat_none_nb": 0.0,
-      "net_gain_vs_best_alternative": -0.06324,
-      "model_preferred": 0
+      "rule_preferred": false,
+      "prob_preferred": false
     }
   ],
-  "tier_ppv": {
-    "green": {
-      "n": 9243,
-      "outbreaks": 54,
-      "ppv": 0.0058
-    },
-    "amber": {
-      "n": 2940,
-      "outbreaks": 72,
-      "ppv": 0.0245
-    },
-    "red": {
-      "n": 1067,
-      "outbreaks": 36,
-      "ppv": 0.0337
-    },
-    "critical": {
-      "n": 2105,
-      "outbreaks": 360,
-      "ppv": 0.171
-    }
-  },
-  "summary": "The SmartMpox model provides positive net benefit over treat-all and treat-none strategies at clinically relevant thresholds (0.10-0.30), demonstrating operational utility for resource allocation decisions."
+  "note": "XGBoost probabilities are class-weighted and uncalibrated; the MpoxMirror-rule curve is calibration-free."
 }
